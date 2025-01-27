@@ -1,0 +1,23 @@
+{
+  "model": {
+    "vits": "/path/to/vits",
+    "deepspeech": "/path/to/deepspeech"
+  },
+  "data": {
+    "libri_dataset_root": "/path/to/librispeech_dataset",
+    "libridata": "./datasets/libridataset_processed.pkl",
+    "libri_latent_data": "./datasets/libridataset_processed.pkl",
+    "training_dataset_size": 500,
+    "testing_dataset_size": 2000
+  },
+  "optimization": {
+    "target_audio_number": 100,
+    "decay_rate": 0.8,
+    "batch_size": 16
+  },
+  "audio": {
+    "sample_rate": 16000,
+    "window_size": 0.02,
+    "window_stride": 0.01
+  }
+}
