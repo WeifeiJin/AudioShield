@@ -65,7 +65,6 @@ def spectrogram_torch(y, n_fft, sampling_rate, hop_size, win_size, center=False)
     spec = torch.stft(y, n_fft, hop_length=hop_size, win_length=win_size, window=hann_window[wnsize_dtype_device],
                       center=center, pad_mode='reflect', normalized=False, onesided=True, return_complex=True)
 
-    # spec = torch.sqrt(spec.pow(2).sum(-1) + 1e-6)
     spec = torch.abs(spec)
     return spec
 
