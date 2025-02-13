@@ -7,7 +7,7 @@ from text.symbols import symbols
 import utils
 from mel_processing import spectrogram_torch
 
-class Attacker:
+class AudioShield:
     def __init__(self, args):
         """Model Settings"""
         self.filter_length = 1024
@@ -50,7 +50,7 @@ class Attacker:
     def perturb_z(self, tensor1, tensor2):
         repeat_times = tensor2.size(2) // tensor1.size(2) + 1
         extended_tensor1 = tensor1.repeat(1, 1, repeat_times)[:, :, :tensor2.size(2)]
-        result = tensor2 + extended_tensor1 * 0.2
+        result = tensor2 + extended_tensor1 #* 0.5
         return result
 
     def convert_2(self, z_hat, y_mask, g_tgt):
@@ -80,9 +80,9 @@ class Attacker:
         return x.detach().cpu().numpy()
 
     def run_conversion_spec(self, spec, spec_length, sid):
-        z, y_mask, g = self.convert_1(self.net_g, spec, spec_length, sid, sid)
+        z, y_mask, g = self.convert_1(spec, spec_length, sid, sid)
         z_adv = self.perturb_z(self.ptb, z)
-        converted_audio = self.convert_2(self.net_g, z_adv, y_mask, g)
+        converted_audio = self.convert_2(z_adv, y_mask, g)
         wav = converted_audio.squeeze(0).squeeze(0)
         x = self.resample_22k(wav.cpu())
         return x.detach().cpu().numpy()
