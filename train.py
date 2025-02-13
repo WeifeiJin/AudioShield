@@ -28,7 +28,6 @@ class Solver:
         self.target_layer = 9
         self.segment_size = 48000
         self.device = torch.device(self.args.device if torch.cuda.is_available() else 'cpu')
-        self.input_txt = self.args.input_txt
         self.output_dir = self.args.output_dir
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
@@ -51,7 +50,7 @@ class Solver:
                        'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', ' ']
         self.labels_map = dict([(self.labels[i], i) for i in range(len(self.labels))])
         self.criterion = nn.CTCLoss(blank=self.labels.index('_'), reduction='sum', zero_infinity=True)
-        tgt_model_path = protection_hps.model.deepspeech
+        tgt_model_path = self.protection_hps.model.deepspeech
         self.tgt_model = load_model(device=self.device, model_path=tgt_model_path)
         self.deep_speech_cfg = TranscribeConfig()
         self.decoder = load_decoder(labels=self.tgt_model.labels, cfg=self.deep_speech_cfg.lm)
@@ -172,7 +171,7 @@ class Solver:
             tgt_audio = self.net_g.decode_latent_feat(w * z_tgt, t_mask, g)
             tgt_audio = tgt_audio.squeeze(0)
             loss_now, _ = self.get_loss(tgt_audio, "deepspeech")
-            print(f'w = {w}, loss = {loss_now}')
+
             if loss_now < min_loss:
                 min_loss = loss_now
                 z_selected = z_tgt
