@@ -1,10 +1,12 @@
 # AudioShield
 
-This is the source code repository for the paper "Whispering Under the Eaves: Protecting User Privacy Against Commercial and LLM-powered Automatic Speech Recognition Systems." The paper has been accepted to [the 34th USENIX Security Symposium, 2025](https://www.usenix.org/conference/usenixsecurity25).
+This is the source code repository for the paper "Whispering Under the Eaves: Protecting User Privacy Against Commercial and LLM-powered Automatic Speech Recognition Systems". The paper has been accepted to [the 34th USENIX Security Symposium, 2025](https://www.usenix.org/conference/usenixsecurity25).
 
 AudioShield leverages transferable universal adversarial perturbation in latent space (LS-TUAP) to provide real-time speech privacy protection services for users, while meeting the three key requirements: real-time performance, model-agnosticism, and high audio quality. We provide a demo page at https://sites.google.com/view/lstuap.
 
 ## Setup
+
+### Dependencies
 
 To run the code, ensure the following dependencies are installed:
 
@@ -12,22 +14,48 @@ To run the code, ensure the following dependencies are installed:
 - PyTorch == 2.2.2
 - CUDA == 12.2
 
-The required dependencies can be installed by running:
+Install espeak:
+
+```shell
+apt-get install espeak
+```
+
+Create conda environment:
+
+```shell
+conda create -n AudioShield python=3.8
+```
+
+Then the required dependencies can be installed by running:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### Dataset
+Build Monotonic Alignment Search for VITS model: 
 
-The `Librispeech` dataset can be downloaded from [here](https://www.openslr.org/12). The `dev-clean` subset is used in this implementation.
+```shell
+cd monotonic_align
+python setup.py build_ext --inplace
+```
 
-### Pre-trained Models
+### Pretrained Models
 
 - The VITS model is used as the Autoencoder. The pre-trained model can be found [here](<https://drive.google.com/drive/folders/1ksarh-cJf3F5eKJjLVWY0X1j1qsQqiS2>).
 - DeepSpeech2 is employed as the local target model. The implemented version is available [here](<https://github.com/SeanNaren/deepspeech.pytorch>).
 
-## Train
+Download the VITS, Deepspeech2 for AudioShield, and ensure they are in the following folders:
+
+- `pretrained/vits/`
+- `pretrained/deepspeech`
+
+The paths can be changed for your own, but make sure the paths are consistent with which are set in `protection.json`.
+
+### Dataset
+
+The `Librispeech` dataset can be downloaded from [here](https://www.openslr.org/12). The `dev-clean` subset is used in this implementation.
+
+## Training
 
 ### Preprocessing
 
