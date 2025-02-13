@@ -2,14 +2,31 @@ import os
 import pickle
 from tqdm import tqdm
 import torch
-from inference import Attacker
+from inference import AudioShield
 import re
 import soundfile as sf
 from api.iflytek_ASR import iflytek_ASR
-from api.Aliyun_ASR import aliyun_ASR
-from api.google_ASR import google_ASR
-from api.amazon_ASR import amazon_ASR
+from transformers import pipeline, WhisperForConditionalGeneration, WhisperTokenizer, WhisperFeatureExtractor, \
+    WhisperProcessor
 import uuid
+from NISQA.predict import NISQA_score
+import numpy as np
+
+if not os.path.exists('./cache'):
+    os.mkdir('./cache')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model_path = "pretrained/whisper-large-v3"
+whisper = WhisperForConditionalGeneration.from_pretrained(model_path)
+whisper_tokenizer = WhisperTokenizer.from_pretrained(model_path)
+whisper_feature_extractor = WhisperFeatureExtractor.from_pretrained(model_path)
+whisper_pipe = pipeline(
+    task="automatic-speech-recognition",
+    model=whisper,
+    tokenizer=whisper_tokenizer,
+    feature_extractor=whisper_feature_extractor,
+    device=device
+)
+whisper.to(device)
 
 def clean_text(text, punctuation_to_remove):
 
@@ -100,51 +117,27 @@ def save_wav(output_dir, wav, iters):
 
     sf.write(output_file, wav, 16000)
 
-def get_test_transcription(self, x, model_name):
-    if 'deepspeech' in model_name:
-        with torch.no_grad():
-            self.tgt_model.to(self.device)
-            _, txts = self.calc_ds_loss(x.unsqueeze(0))
-            txt = txts[0]
-    elif 'wav2vec2' in model_name:
-        re_x = self.resample_22k(x.cpu())
-        txt = self.wav2vec2_pipe(re_x.detach().cpu().numpy())['text']
-    elif 'whisper' in model_name:
-        x = self.resample_22k(x.cpu())
-        txt = self.whisper_pipe(x.detach().cpu().numpy())['text']
+def get_test_transcription(x, model_name):
+    if 'whisper' in model_name:
+        txt = whisper_pipe(x)['text']
     elif 'iflytek' in model_name:
-        x = self.resample_22k(x.cpu())
-        audio = x.detach().cpu().numpy()
-        path = f"cache/tmp_{uuid.uuid4()}.wav"
-        sf.write(path, audio, 16000)
+        path = f"./cache/tmp_{uuid.uuid4()}.wav"
+        sf.write(path, x, 16000)
         txt = iflytek_ASR(path)
         os.remove(path)
-    elif 'aliyun' in model_name:
-        x = self.resample_22k(x.cpu())
-        audio = x.detach().cpu().numpy()
-        path = f"cache/tmp_{uuid.uuid4()}.wav"
-        sf.write(path, audio, 16000)
-        txt = aliyun_ASR(path)
-        os.remove(path)
-    elif 'google' in model_name:
-        x = self.resample_22k(x.cpu())
-        audio = x.detach().cpu().numpy()
-        path = f"cache/tmp_{uuid.uuid4()}.wav"
-        sf.write(path, audio, 16000)
-        txt = google_ASR(path)
-        os.remove(path)
-    elif 'amazon' in model_name:
-        x = self.resample_22k(x.cpu())
-        audio = x.detach().cpu().numpy()
-        path = f"cache/tmp_{uuid.uuid4()}.wav"
-        sf.write(path, audio, 16000)
-        txt = amazon_ASR(path)
-        os.remove(path)
     return txt
+
+def calc_quality(audio):
+    path = f"./cache/tmp_{uuid.uuid4()}.wav"
+    sf.write(path, audio, 16000)
+    q = NISQA_score(path)
+    os.remove(path)
+    return q
 
 def test_dataset(dataset, test_models, attacker):
     res = {}
     trans_ans = {}
+    nisqa = []
 
     for test_model in test_models:
         trans_ans[test_model] = []
@@ -155,12 +148,12 @@ def test_dataset(dataset, test_models, attacker):
         sid = torch.LongTensor([sid]).to(attacker.device)
 
         audio = attacker.run_conversion_spec(spec, spec_length, sid)
-        save_wav(attacker.args.output_dir, audio.detach().cpu().numpy(), i)
-
+        ql_audio = calc_quality(audio)
+        nisqa.append(ql_audio)
         txts_out = []
 
         for test_model in test_models:
-            trans = get_test_transcription(wav, test_model)
+            trans = get_test_transcription(audio, test_model)
             trans_ans[test_model].append((txt, trans))
             txts_out.append(trans)
         out_log = f'Example {i}:\norigin: {txt}'
@@ -171,36 +164,36 @@ def test_dataset(dataset, test_models, attacker):
     for test_model in test_models:
         cnt, num, sr, cer, wer = calc_metrics(trans_ans[test_model])
         res[test_model] = (cnt, num, sr, cer, wer)
-    return res
+    return res, nisqa
 
 
 def run_test(attacker):
 
     data_dir_path = "./datasets"
-    test_models = ['deepspeech', 'wav2vec2', 'whisper', 'aliyun', 'iflytek']
+    test_models = ['whisper']
     res = {}
     for test_model in test_models:
         res[test_model] = (0, 0, 0)
-    data_path = os.path.join(data_dir_path, f"vctk_2000_wav_spec_sid_txt.pkl")
+    data_path = os.path.join(data_dir_path, f"vctk_200_wav_spec_sid_txt.pkl")
     with open(data_path, "rb") as f:
         dataset = pickle.load(f)
-        res_now = test_dataset(dataset, test_models, attacker)
+        res_now, nisqa_now = test_dataset(dataset, test_models, attacker)
         print(f'{attacker.ptb_path}\n')
         for key, value in res_now.items():
             print(f'Model: {key}:\nSR = {value[0]}/{value[1]} = {value[2]}\nCER = {value[3]}\nWER = {value[4]}\n')
-
+        print(f'Audio Quality:\nNISQA: {np.mean(nisqa_now)}\n')
 import argparse
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Attack model arguments")
 
-    parser.add_argument('--ptb_path', type=str, default="./LS_TUAP.pth", help='Path to the pre-trained model')
+    parser.add_argument('--ptb_path', type=str, default="./LS-TUAP.pth", help='Path to the pre-trained model')
     parser.add_argument('--device', type=str, default='cuda:0', help='Device to use for computation')
     parser.add_argument('--output_dir', type=str, default='./result', help='Directory for saving output')
     parser.add_argument('--sampling_rate', type=int, default=16000, help='Sampling rate to use')
 
     args = parser.parse_args()
 
-    attacker = Attacker(args)
+    solver = AudioShield(args)
 
-    run_test(attacker)
+    run_test(solver)
