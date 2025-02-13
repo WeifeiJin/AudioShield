@@ -1,7 +1,7 @@
 {
   "model": {
-    "vits": "/path/to/vits",
-    "deepspeech": "/path/to/deepspeech"
+    "vits": "./pretrained/vits/pretrained_vctk.pth",
+    "deepspeech": "./pretrained/deepspeech/librispeech_pretrained_v3.ckpt"
   },
   "data": {
     "libri_dataset_root": "/path/to/librispeech_dataset",
