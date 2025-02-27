@@ -36,7 +36,7 @@ class AudioShield:
 
     def load_ptb(self, path):
         ts_dict = torch.load(path)
-        return ts_dict['MAP']
+        return ts_dict['LS-TUAP']
 
     def convert_1(self, y, y_lengths, sid_src, sid_tgt):
         assert self.net_g.n_speakers > 0, "n_speakers have to be larger than 0."
