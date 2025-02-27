@@ -174,7 +174,7 @@ def run_test(attacker):
     res = {}
     for test_model in test_models:
         res[test_model] = (0, 0, 0)
-    data_path = os.path.join(data_dir_path, f"vctk_200_wav_spec_sid_txt.pkl")
+    data_path = os.path.join(data_dir_path, f"vctk_2000_wav_spec_sid_txt.pkl")
     with open(data_path, "rb") as f:
         dataset = pickle.load(f)
         res_now, nisqa_now = test_dataset(dataset, test_models, attacker)
